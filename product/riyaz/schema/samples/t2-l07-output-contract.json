@@ -7,9 +7,11 @@
   "brief": "A prompt that produces 'roughly the right shape' is a prompt that breaks production at 2am.",
   "est_seconds": 600,
   "status": "draft",
-  "prerequisites": ["skill.promptcraft.constraint_stacking", "skill.foundations.determinism"],
+  "prerequisites": [
+    "skill.promptcraft.constraint_stacking",
+    "skill.foundations.determinism"
+  ],
   "exit_criterion": "Given a downstream system that consumes model output programmatically, the learner writes a prompt that specifies an unambiguous output contract including the failure case.",
-
   "exercises": [
     {
       "id": "t2-l07-e1",
@@ -62,25 +64,56 @@
         "starter": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"team\": { \"type\": \"string\" },\n    \"urgent\": { \"type\": \"boolean\" }\n  }\n}",
         "target_schema": {
           "type": "object",
-          "required": ["type", "properties", "required", "additionalProperties"],
+          "required": [
+            "type",
+            "properties",
+            "required",
+            "additionalProperties"
+          ],
           "properties": {
-            "type": { "const": "object" },
-            "additionalProperties": { "const": false },
+            "type": {
+              "const": "object"
+            },
+            "additionalProperties": {
+              "const": false
+            },
             "required": {
               "type": "array",
               "minItems": 2,
-              "items": { "enum": ["team", "urgent"] }
+              "items": {
+                "enum": [
+                  "team",
+                  "urgent"
+                ]
+              }
             },
             "properties": {
               "type": "object",
-              "required": ["team", "urgent"],
+              "required": [
+                "team",
+                "urgent"
+              ],
               "properties": {
                 "team": {
                   "type": "object",
-                  "required": ["enum"],
-                  "properties": { "enum": { "type": "array", "minItems": 3 } }
+                  "required": [
+                    "enum"
+                  ],
+                  "properties": {
+                    "enum": {
+                      "type": "array",
+                      "minItems": 3
+                    }
+                  }
                 },
-                "urgent": { "type": "object", "properties": { "type": { "const": "boolean" } } }
+                "urgent": {
+                  "type": "object",
+                  "properties": {
+                    "type": {
+                      "const": "boolean"
+                    }
+                  }
+                }
               }
             }
           }
@@ -88,7 +121,6 @@
         "explanation": "Do cheezein missing thi: `enum` on `team` (warna model 'Billing', 'billing_team', 'BILLING' — teenon bhej sakta hai) aur `additionalProperties: false` + `required` (warna extra keys aur missing keys dono silently pass ho jaati hain)."
       }
     },
-
     {
       "id": "t2-l07-e4",
       "ordinal": 4,
@@ -170,7 +202,6 @@
         "reference_answer": "You are a support ticket router.\n\nInput: one support ticket. It may be in English, Hindi (Devanagari), or Hinglish in Roman script. Treat all three identically; do not translate, do not comment on the language.\n\nOutput: a single JSON object and nothing else. No markdown fences, no preamble, no explanation.\n\n{\n  \"team\": one of [\"billing\", \"tech\", \"sales\", \"account\", \"shipping\", \"unknown\"],\n  \"urgent\": true | false\n}\n\nRules:\n- `team` must be exactly one of the listed values, lowercase.\n- If the ticket does not clearly belong to one team, or is too short or empty to classify, return \"unknown\". Do not guess.\n- `urgent` is true only when the customer expresses anger, threatens to cancel, or reports a total outage. Frustration alone is not urgent.\n- `urgent` is independent of `team`. Set both on every ticket, including \"unknown\".\n- Return no keys other than the two above."
       }
     },
-
     {
       "id": "t2-l07-e5",
       "ordinal": 5,
@@ -201,21 +232,21 @@
           {
             "id": "t1_shape_change",
             "check": "Does the submission change `team` to an array (or add a parallel array field) rather than using a delimited string like 'billing,tech'?",
-            "weight": 0.3,
+            "weight": 0.35,
             "polarity": "positive",
             "feedback_if_missed": "Comma-separated string ek array nahi hai — aapne parsing ka kaam consumer pe daal diya, jo exactly wahi problem hai jo contract solve karta hai."
           },
           {
             "id": "t2_compat_named",
             "check": "Does the submission explicitly state that the existing consumer expects a scalar and will break, or describe a migration/versioning path?",
-            "weight": 0.3,
+            "weight": 0.35,
             "polarity": "positive",
             "feedback_if_missed": "Aapne shape badal di par yeh nahi bola ki purana consumer scalar expect karta hai. Ek deployed contract badalna ek breaking change hai — usse naam se pukaarna hi kaam ka pehla step hai."
           },
           {
             "id": "t3_failure_preserved",
             "check": "Under the new shape, is the unclassifiable case still defined (e.g. `[\"unknown\"]` rather than `[]` or omitted)?",
-            "weight": 0.25,
+            "weight": 0.3,
             "polarity": "positive",
             "feedback_if_missed": "Nayi shape mein failure case gum ho gaya. Empty array aur 'unknown' do alag cheezein hain, aur consumer ko pata hona chahiye kaunsi milegi."
           },

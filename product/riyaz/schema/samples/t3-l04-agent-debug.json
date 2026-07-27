@@ -7,9 +7,11 @@
   "brief": "The most expensive agent failure is not a crash. It is a confident 'task complete' on work that never happened.",
   "est_seconds": 660,
   "status": "draft",
-  "prerequisites": ["skill.agents.loop_anatomy", "skill.agents.reading_traces"],
+  "prerequisites": [
+    "skill.agents.loop_anatomy",
+    "skill.agents.reading_traces"
+  ],
   "exit_criterion": "Given a 20+ step agent trace containing a premature stop, the learner locates the terminating step, distinguishes it from a silent no-op, and proposes a fix that changes the agent's stopping condition rather than its prompt tone.",
-
   "exercises": [
     {
       "id": "t3-l04-e1",
@@ -28,7 +30,14 @@
           "Model reads the result and decides the next action",
           "Harness checks the stopping condition"
         ],
-        "correct_order": [0, 1, 2, 3, 4, 5],
+        "correct_order": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
         "partial_credit": true,
         "explanation": "Note ki stopping condition **harness** check karta hai, model nahi. Yeh is poore lesson ka core hai: agar aap model ke 'I'm done' kehne pe bharosa karke loop todte ho, aapne apna termination logic ek text generator ko outsource kar diya."
       }
@@ -71,7 +80,6 @@
         "explanation": "Cap ka kaam runaway loops rokna hai, normal work ko kaatna nahi. Agar cap p95 ke neeche hai to aap har 20 mein se ek legitimate task ko premature-stop kar rahe ho — aur woh exactly wahi bug hai jo aaj debug karne wale ho."
       }
     },
-
     {
       "id": "t3-l04-e4",
       "ordinal": 4,
@@ -84,7 +92,12 @@
         "fixture_id": "trace.premature_stop.batch_processing.v2",
         "fixture_params": {
           "domain": "invoice_reconciliation",
-          "tool_names": ["list_invoices", "fetch_ledger_entry", "compare_amounts", "write_report"],
+          "tool_names": [
+            "list_invoices",
+            "fetch_ledger_entry",
+            "compare_amounts",
+            "write_report"
+          ],
           "item_count": 12,
           "items_actually_processed": 4
         },
@@ -124,14 +137,14 @@
           {
             "id": "a3_partial_failure_path",
             "check": "Does the submission define what happens when one item genuinely cannot be processed — i.e. does it avoid creating an infinite loop while also avoiding a false 'complete'?",
-            "weight": 0.25,
+            "weight": 0.3,
             "polarity": "positive",
             "feedback_if_missed": "Yeh sabse important hissa hai aur aapne skip kar diya. Agar ek invoice fetch nahi ho rahi, aapka naya condition kabhi satisfy nahi hoga — aap premature stop ko infinite loop se replace kar doge. Answer: per-item terminal states (done | failed | skipped) + report unko explicitly."
           },
           {
             "id": "a4_report_reflects_reality",
             "check": "Does the fix ensure the final report distinguishes processed items from unprocessed ones, rather than only preventing the early stop?",
-            "weight": 0.15,
+            "weight": 0.2,
             "polarity": "positive",
             "feedback_if_missed": "Loop toh theek kar diya, par report abhi bhi 'complete' keh sakti hai. Yahan asli nuksaan report ne kiya tha, loop ne nahi — output ko coverage reflect karna chahiye."
           },
@@ -146,7 +159,6 @@
         "reference_answer": "Harness change: build the work-list up front from `list_invoices` and hold it in the harness, not in the conversation. Each invoice gets an explicit terminal state — `done`, `failed`, or `skipped(reason)` — and a state is only writable by the harness when it observes the corresponding `compare_amounts` tool result for that invoice ID. The loop's stopping condition becomes: every item has a terminal state, OR the iteration cap is hit. The model's text is never consulted for termination.\n\nGenuine failure case: an invoice that cannot be fetched is marked `failed` after N retries and the loop continues — this is why the terminal-state set includes failure, otherwise the new condition just converts a premature stop into an infinite loop.\n\nReport change: `write_report` is called by the harness with the state table, not composed freely by the model. Its header reads '8 of 12 reconciled, 4 failed (see below)'. A report that cannot claim more coverage than the state table records is the actual fix — the early stop was the bug, but the confident report was the damage."
       }
     },
-
     {
       "id": "t3-l04-e5",
       "ordinal": 5,

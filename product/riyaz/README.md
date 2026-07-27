@@ -15,6 +15,7 @@ spec you'd hand to an engineer, a designer, or a co-founder before writing any.
 | [`schema/samples/t1-l03-context-window.json`](schema/samples/t1-l03-context-window.json) | A **zero-LLM-cost** Foundations lesson — the shape the free tier is built from. |
 | [`schema/samples/t2-l07-output-contract.json`](schema/samples/t2-l07-output-contract.json) | A Promptcraft lesson with a full rubric-graded rep and a twist. |
 | [`schema/samples/t3-l04-agent-debug.json`](schema/samples/t3-l04-agent-debug.json) | A hybrid-graded agent-debugging lesson (deterministic diagnosis + free-form fix). |
+| **[`grader/`](grader/README.md)** | Working spike of the grading pipeline + eval harness — the riskiest assumption in the concept, tested in ~700 lines instead of a 12-week app build. Not yet run against the live API. |
 
 ## The four things worth reading first
 
@@ -39,5 +40,9 @@ If you only read four sections of the blueprint, read these — they're where th
 Pre-build. Nothing validated with users. Every number in §15 is a stated assumption, not a
 measurement — the point is to find the shape of the business, not to predict it.
 
-Next concrete step, per the blueprint: **run the name/trademark/domain check (D1) and decide the
-price test (D4)**, because both block work that starts in week 1.
+Next concrete steps:
+
+1. **Run the grader eval with an API key** — `python grader/evals/run_eval.py`. Costs a few cents
+   and produces the two numbers that decide whether the concept works at all.
+2. **Name/trademark/domain check (D1)** and **the price test (D4)** — both block work that starts
+   in week 1 of the build plan.
