@@ -1,0 +1,301 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://riyaz.app/schema/lesson.schema.json",
+  "title": "Riyaz Lesson",
+  "description": "Authoring contract for a single Riyaz lesson. Lessons live in source control and are validated in CI. One lesson = one ~10-minute session.",
+  "type": "object",
+  "required": ["id", "track", "skill_id", "day_index", "title", "brief", "est_seconds", "status", "exercises"],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^t[1-6]-l[0-9]{2}-[a-z0-9-]+$",
+      "description": "Stable lesson id, e.g. t2-l07-output-contract. Never reuse or renumber."
+    },
+    "track": {
+      "type": "string",
+      "enum": ["foundations", "promptcraft", "agents", "grounding", "connectors", "sdd"]
+    },
+    "skill_id": {
+      "type": "string",
+      "description": "Skill node in the skill graph. Drives mastery decay and warm-up selection."
+    },
+    "day_index": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Position on the default 90-day path."
+    },
+    "title": { "type": "string", "maxLength": 60 },
+    "brief": {
+      "type": "string",
+      "maxLength": 400,
+      "description": "The one-line 'why this matters today' shown on the open screen."
+    },
+    "est_seconds": { "type": "integer", "minimum": 300, "maximum": 900 },
+    "status": { "type": "string", "enum": ["draft", "review", "published", "retired"] },
+    "prerequisites": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": []
+    },
+    "exit_criterion": {
+      "type": "string",
+      "description": "What the learner can demonstrably do after this lesson. Required before status=published."
+    },
+    "companion_video": {
+      "type": "string",
+      "format": "uri",
+      "description": "Optional Prompt Vidya video this lesson accompanies."
+    },
+    "_authoring_note": {
+      "type": "string",
+      "description": "Free-text note for content authors. Never rendered to learners."
+    },
+    "exercises": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/exercise" }
+    }
+  },
+
+  "$defs": {
+    "exercise": {
+      "type": "object",
+      "required": ["id", "ordinal", "type", "slot", "payload"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "ordinal": { "type": "integer", "minimum": 1 },
+        "slot": {
+          "type": "string",
+          "enum": ["warmup", "rep", "twist"],
+          "description": "Where in the 10-minute loop this sits. Exactly one 'rep' per lesson."
+        },
+        "type": {
+          "type": "string",
+          "enum": [
+            "spot_the_flaw",
+            "order_the_steps",
+            "fill_the_contract",
+            "predict_the_output",
+            "budget_call",
+            "write_the_prompt",
+            "debug_the_agent",
+            "fix_the_retrieval",
+            "design_the_tool",
+            "write_the_spec",
+            "twist",
+            "battle"
+          ]
+        },
+        "xp_base": { "type": "integer", "minimum": 0, "default": 5 },
+        "payload": {
+          "description": "Type-specific content. Shape is discriminated by `type`.",
+          "oneOf": [
+            { "$ref": "#/$defs/choicePayload" },
+            { "$ref": "#/$defs/orderPayload" },
+            { "$ref": "#/$defs/contractPayload" },
+            { "$ref": "#/$defs/freeformPayload" },
+            { "$ref": "#/$defs/tracePayload" }
+          ]
+        },
+        "rubric": {
+          "$ref": "#/$defs/rubric",
+          "description": "Required for any exercise whose grading includes a free-form component."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {
+                "enum": ["write_the_prompt", "debug_the_agent", "fix_the_retrieval", "design_the_tool", "write_the_spec", "twist", "battle"]
+              }
+            }
+          },
+          "then": { "required": ["rubric"] }
+        }
+      ]
+    },
+
+    "choicePayload": {
+      "type": "object",
+      "title": "Multiple choice (spot_the_flaw, predict_the_output, budget_call)",
+      "required": ["kind", "stem", "options", "correct_index", "explanation"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "choice" },
+        "stem": { "type": "string" },
+        "context_block": {
+          "type": "string",
+          "description": "Optional monospace block (prompt, config, trace excerpt) shown above the options."
+        },
+        "options": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 5,
+          "items": { "type": "string" }
+        },
+        "correct_index": { "type": "integer", "minimum": 0 },
+        "explanation": {
+          "type": "string",
+          "description": "Shown after answering, right or wrong. Must explain why the wrong ones are wrong."
+        }
+      }
+    },
+
+    "orderPayload": {
+      "type": "object",
+      "title": "Ordering (order_the_steps)",
+      "required": ["kind", "stem", "items", "correct_order", "explanation"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "order" },
+        "stem": { "type": "string" },
+        "items": { "type": "array", "minItems": 3, "maxItems": 8, "items": { "type": "string" } },
+        "correct_order": { "type": "array", "items": { "type": "integer" } },
+        "partial_credit": { "type": "boolean", "default": true },
+        "explanation": { "type": "string" }
+      }
+    },
+
+    "contractPayload": {
+      "type": "object",
+      "title": "Schema completion (fill_the_contract)",
+      "required": ["kind", "stem", "starter", "target_schema", "explanation"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "contract" },
+        "stem": { "type": "string" },
+        "starter": { "type": "string", "description": "Partial JSON the learner edits." },
+        "target_schema": {
+          "type": "object",
+          "description": "JSON Schema the learner's submission is validated against. Deterministic grading."
+        },
+        "forbidden_patterns": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Regexes that must NOT appear (e.g. hardcoded secrets)."
+        },
+        "explanation": { "type": "string" }
+      }
+    },
+
+    "freeformPayload": {
+      "type": "object",
+      "title": "Free-form submission (write_the_prompt, write_the_spec, design_the_tool, twist)",
+      "required": ["kind", "scenario", "task", "constraints"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "freeform" },
+        "scenario": {
+          "type": "string",
+          "description": "The workplace-real situation. Concrete numbers, named systems, real stakes."
+        },
+        "task": { "type": "string", "description": "What exactly to write." },
+        "constraints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Every constraint here MUST map to a rubric criterion. CI enforces this."
+        },
+        "min_chars": { "type": "integer", "default": 80 },
+        "max_chars": { "type": "integer", "default": 2000 },
+        "starter_text": { "type": "string" },
+        "twist_of": {
+          "type": "string",
+          "description": "For slot=twist: the exercise id whose submission this modifies."
+        },
+        "twist_change": {
+          "type": "string",
+          "description": "For slot=twist: the constraint that just changed under the learner."
+        }
+      }
+    },
+
+    "tracePayload": {
+      "type": "object",
+      "title": "Agent trace (debug_the_agent) / retrieval config (fix_the_retrieval)",
+      "required": ["kind", "scenario", "fixture_id", "diagnosis", "task"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": { "const": "trace" },
+        "scenario": { "type": "string" },
+        "fixture_id": {
+          "type": "string",
+          "description": "Reference into the trace/corpus fixture library. Parameterizable."
+        },
+        "fixture_params": { "type": "object", "description": "Domain/tool-name substitutions for this instance." },
+        "diagnosis": {
+          "type": "object",
+          "description": "The cheap deterministic half: which step, which failure class.",
+          "required": ["failure_step", "failure_class", "options"],
+          "additionalProperties": false,
+          "properties": {
+            "failure_step": { "type": "integer" },
+            "failure_class": {
+              "type": "string",
+              "enum": ["infinite_loop", "tool_arg_hallucination", "premature_stop", "context_poisoning", "silent_no_op"]
+            },
+            "options": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "task": { "type": "string", "description": "The free-form half: propose the fix." }
+      }
+    },
+
+    "rubric": {
+      "type": "object",
+      "required": ["id", "version", "criteria", "reference_answer", "golden_set_id"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "version": { "type": "integer", "minimum": 1 },
+        "grader_tier": {
+          "type": "string",
+          "enum": ["standard", "hard"],
+          "default": "standard",
+          "description": "standard -> Haiku 4.5; hard -> Sonnet 5. Routed by rubric difficulty, never by user tier."
+        },
+        "criteria": {
+          "type": "array",
+          "description": "Target 6-10 for a 'rep'. A 'twist' grades only the delta, so 3-5 is normal there. Below 3, the exercise is not specified well enough to grade.",
+          "minItems": 3,
+          "maxItems": 12,
+          "items": {
+            "type": "object",
+            "required": ["id", "check", "weight"],
+            "additionalProperties": false,
+            "properties": {
+              "id": { "type": "string" },
+              "check": {
+                "type": "string",
+                "description": "A single BINARY question the judge answers met/not-met. Never a 1-10 scale."
+              },
+              "weight": { "type": "number", "minimum": 0, "maximum": 1 },
+              "polarity": {
+                "type": "string",
+                "enum": ["positive", "negative"],
+                "default": "positive",
+                "description": "negative = an anti-gaming criterion; being 'met' subtracts."
+              },
+              "feedback_if_missed": {
+                "type": "string",
+                "description": "Shown verbatim to the learner. Must name the specific gap, not scold."
+              }
+            }
+          }
+        },
+        "reference_answer": {
+          "type": "string",
+          "description": "A strong answer that satisfies every positive criterion. Shown after grading."
+        },
+        "golden_set_id": {
+          "type": "string",
+          "description": "Path to the ~20 hand-labelled submissions this rubric is regression-tested against."
+        },
+        "pass_threshold": { "type": "number", "minimum": 0, "maximum": 1, "default": 0.6 }
+      }
+    }
+  }
+}

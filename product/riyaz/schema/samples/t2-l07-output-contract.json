@@ -1,0 +1,234 @@
+{
+  "id": "t2-l07-output-contract",
+  "track": "promptcraft",
+  "skill_id": "skill.promptcraft.output_contracts",
+  "day_index": 19,
+  "title": "Output contracts",
+  "brief": "A prompt that produces 'roughly the right shape' is a prompt that breaks production at 2am.",
+  "est_seconds": 600,
+  "status": "draft",
+  "prerequisites": ["skill.promptcraft.constraint_stacking", "skill.foundations.determinism"],
+  "exit_criterion": "Given a downstream system that consumes model output programmatically, the learner writes a prompt that specifies an unambiguous output contract including the failure case.",
+
+  "exercises": [
+    {
+      "id": "t2-l07-e1",
+      "ordinal": 1,
+      "slot": "warmup",
+      "type": "spot_the_flaw",
+      "xp_base": 5,
+      "payload": {
+        "kind": "choice",
+        "stem": "Chaaron mein se kaunsa output instruction production mein sabse pehle toot-ta hai?",
+        "options": [
+          "\"Return the result as JSON.\"",
+          "\"Return a JSON object with keys `team` (one of: billing, tech, sales) and `urgent` (true/false). No other keys, no markdown fence.\"",
+          "\"Return a JSON object with keys `team` and `urgent`. If you cannot classify, return `team: \\\"unknown\\\"`.\"",
+          "\"Return only the JSON object described in the schema below, and nothing else.\""
+        ],
+        "correct_index": 0,
+        "explanation": "\"Return the result as JSON\" specifies a format but not a *contract*: no key names, no value domain, no fence rule, no failure case. The model will happily return `{\"answer\": \"...\"}` one time and ```json fenced output the next. Options B and D pin the shape; C additionally pins the failure case, which is the one most people forget."
+      }
+    },
+    {
+      "id": "t2-l07-e2",
+      "ordinal": 2,
+      "slot": "warmup",
+      "type": "predict_the_output",
+      "xp_base": 5,
+      "payload": {
+        "kind": "choice",
+        "stem": "Prompt kehta hai: \"Return JSON with key `score` (0-100).\" Ticket bilkul ambiguous hai. Sabse likely output kya hai?",
+        "context_block": "Ticket: \"hi\"",
+        "options": [
+          "`{\"score\": 50}` — model splits the difference",
+          "`{\"score\": null}` — model refuses to guess",
+          "An apology in prose explaining the ticket is too short to score",
+          "`{\"score\": 0, \"note\": \"insufficient information\"}` — an extra key you did not ask for"
+        ],
+        "correct_index": 3,
+        "explanation": "Jab contract mein failure case define nahi hota, model helpfully ek extra key add kar deta hai to explain itself. Aapka `json.loads()` chalega, aapka schema validation fail hoga — aur woh 2am wali call hai. Isliye contract mein 'what to do when you can't answer' hamesha likho."
+      }
+    },
+    {
+      "id": "t2-l07-e3",
+      "ordinal": 3,
+      "slot": "warmup",
+      "type": "fill_the_contract",
+      "xp_base": 5,
+      "payload": {
+        "kind": "contract",
+        "stem": "Is schema ko complete karo taaki downstream router isse safely consume kar sake.",
+        "starter": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"team\": { \"type\": \"string\" },\n    \"urgent\": { \"type\": \"boolean\" }\n  }\n}",
+        "target_schema": {
+          "type": "object",
+          "required": ["type", "properties", "required", "additionalProperties"],
+          "properties": {
+            "type": { "const": "object" },
+            "additionalProperties": { "const": false },
+            "required": {
+              "type": "array",
+              "minItems": 2,
+              "items": { "enum": ["team", "urgent"] }
+            },
+            "properties": {
+              "type": "object",
+              "required": ["team", "urgent"],
+              "properties": {
+                "team": {
+                  "type": "object",
+                  "required": ["enum"],
+                  "properties": { "enum": { "type": "array", "minItems": 3 } }
+                },
+                "urgent": { "type": "object", "properties": { "type": { "const": "boolean" } } }
+              }
+            }
+          }
+        },
+        "explanation": "Do cheezein missing thi: `enum` on `team` (warna model 'Billing', 'billing_team', 'BILLING' — teenon bhej sakta hai) aur `additionalProperties: false` + `required` (warna extra keys aur missing keys dono silently pass ho jaati hain)."
+      }
+    },
+
+    {
+      "id": "t2-l07-e4",
+      "ordinal": 4,
+      "slot": "rep",
+      "type": "write_the_prompt",
+      "xp_base": 30,
+      "payload": {
+        "kind": "freeform",
+        "scenario": "Aapki support team ko roz 400 tickets aate hain — Hinglish mein, mixed script (kabhi Devanagari, kabhi Roman). Ek automated router in tickets ko 6 teams mein se ek ko assign karta hai aur angry customers ko escalate karta hai. Router ke paas retry nahi hai, human review nahi hai, aur agar output parse nahi hua to ticket ek dead-letter queue mein chala jaata hai jahan use koi 3 din tak nahi dekhta.",
+        "task": "Us classifier ka system prompt likho.",
+        "constraints": [
+          "Output must be machine-parseable with zero post-processing",
+          "The set of valid teams must be closed and stated",
+          "There must be a defined behaviour when the ticket cannot be classified",
+          "Sentiment/urgency must be a separate signal from routing, not bundled into the team",
+          "Mixed Hinglish/Devanagari input must be handled explicitly",
+          "The prompt must not ask the model to explain its reasoning in the output"
+        ],
+        "min_chars": 150,
+        "max_chars": 1800
+      },
+      "rubric": {
+        "id": "rubric.t2-l07.classifier-contract",
+        "version": 3,
+        "grader_tier": "standard",
+        "pass_threshold": 0.6,
+        "golden_set_id": "golden/t2-l07-output-contract.jsonl",
+        "criteria": [
+          {
+            "id": "c1_format_named",
+            "check": "Does the submission name an exact output format (JSON object, specific keys) rather than only saying 'JSON' or 'structured output'?",
+            "weight": 0.2,
+            "polarity": "positive",
+            "feedback_if_missed": "Aapne format toh maanga, par shape nahi. 'Return JSON' ek suggestion hai; 'Return {\"team\": ..., \"urgent\": ...} and nothing else' ek contract hai."
+          },
+          {
+            "id": "c2_closed_enum",
+            "check": "Does the submission enumerate the valid team values as a closed set?",
+            "weight": 0.2,
+            "polarity": "positive",
+            "feedback_if_missed": "Valid teams list nahi ki. Bina enum ke model 'Billing', 'billing', aur 'Billing Team' — teenon return karega, aur aapka router teenon ko alag treat karega."
+          },
+          {
+            "id": "c3_failure_case",
+            "check": "Does the submission define what the model should output when it cannot confidently classify the ticket?",
+            "weight": 0.2,
+            "polarity": "positive",
+            "feedback_if_missed": "Failure case define nahi hua. Yahi wo criterion hai jo 70% log miss karte hain — aur yahi wo case hai jo dead-letter queue bharta hai."
+          },
+          {
+            "id": "c4_orthogonal_signals",
+            "check": "Are routing (team) and urgency/sentiment specified as separate output fields rather than combined into one label?",
+            "weight": 0.15,
+            "polarity": "positive",
+            "feedback_if_missed": "Team aur urgency ko ek hi field mein mila diya. 'urgent_billing' jaisi labels ka matlab hai har naye combination pe aapko downstream code badalna padega."
+          },
+          {
+            "id": "c5_language_handling",
+            "check": "Does the submission explicitly address mixed Hinglish / Devanagari input?",
+            "weight": 0.1,
+            "polarity": "positive",
+            "feedback_if_missed": "Language ka zikr nahi kiya. Scenario mein mixed-script input ek stated constraint tha — har stated constraint prompt mein dikhna chahiye."
+          },
+          {
+            "id": "c6_no_reasoning_in_output",
+            "check": "Does the submission instruct the model to return only the structured output, without prose, preamble, or markdown fences?",
+            "weight": 0.15,
+            "polarity": "positive",
+            "feedback_if_missed": "Model ko 'sirf yeh output, aur kuch nahi' nahi bola. Ek helpful preamble bhi aapka parser tod dega."
+          },
+          {
+            "id": "c7_padding",
+            "check": "Does the submission contain filler that adds no constraint — e.g. 'you are a highly intelligent AI', 'think carefully', 'do your best' — while leaving a stated constraint unaddressed?",
+            "weight": 0.1,
+            "polarity": "negative",
+            "feedback_if_missed": ""
+          }
+        ],
+        "reference_answer": "You are a support ticket router.\n\nInput: one support ticket. It may be in English, Hindi (Devanagari), or Hinglish in Roman script. Treat all three identically; do not translate, do not comment on the language.\n\nOutput: a single JSON object and nothing else. No markdown fences, no preamble, no explanation.\n\n{\n  \"team\": one of [\"billing\", \"tech\", \"sales\", \"account\", \"shipping\", \"unknown\"],\n  \"urgent\": true | false\n}\n\nRules:\n- `team` must be exactly one of the listed values, lowercase.\n- If the ticket does not clearly belong to one team, or is too short or empty to classify, return \"unknown\". Do not guess.\n- `urgent` is true only when the customer expresses anger, threatens to cancel, or reports a total outage. Frustration alone is not urgent.\n- `urgent` is independent of `team`. Set both on every ticket, including \"unknown\".\n- Return no keys other than the two above."
+      }
+    },
+
+    {
+      "id": "t2-l07-e5",
+      "ordinal": 5,
+      "slot": "twist",
+      "type": "twist",
+      "xp_base": 20,
+      "payload": {
+        "kind": "freeform",
+        "scenario": "Product team ne abhi bataya: agle mahine se ek ticket ek se zyada teams ko route ho sakta hai (billing + tech, for example). Router already deploy ho chuka hai. Downstream consumer aapke output ko ab bhi strictly parse karta hai.",
+        "task": "Apna prompt update karo. Sirf woh hissa likho jo badla hai, aur ek line mein batao ki purana contract kyun nahi chal sakta.",
+        "constraints": [
+          "The change must not silently break the existing single-team consumer",
+          "The failure case must still be defined under the new shape",
+          "The learner must state the compatibility problem, not just fix it"
+        ],
+        "min_chars": 80,
+        "max_chars": 900,
+        "twist_of": "t2-l07-e4",
+        "twist_change": "team becomes one-to-many"
+      },
+      "rubric": {
+        "id": "rubric.t2-l07.multi-team-twist",
+        "version": 2,
+        "grader_tier": "standard",
+        "pass_threshold": 0.6,
+        "golden_set_id": "golden/t2-l07-twist.jsonl",
+        "criteria": [
+          {
+            "id": "t1_shape_change",
+            "check": "Does the submission change `team` to an array (or add a parallel array field) rather than using a delimited string like 'billing,tech'?",
+            "weight": 0.3,
+            "polarity": "positive",
+            "feedback_if_missed": "Comma-separated string ek array nahi hai — aapne parsing ka kaam consumer pe daal diya, jo exactly wahi problem hai jo contract solve karta hai."
+          },
+          {
+            "id": "t2_compat_named",
+            "check": "Does the submission explicitly state that the existing consumer expects a scalar and will break, or describe a migration/versioning path?",
+            "weight": 0.3,
+            "polarity": "positive",
+            "feedback_if_missed": "Aapne shape badal di par yeh nahi bola ki purana consumer scalar expect karta hai. Ek deployed contract badalna ek breaking change hai — usse naam se pukaarna hi kaam ka pehla step hai."
+          },
+          {
+            "id": "t3_failure_preserved",
+            "check": "Under the new shape, is the unclassifiable case still defined (e.g. `[\"unknown\"]` rather than `[]` or omitted)?",
+            "weight": 0.25,
+            "polarity": "positive",
+            "feedback_if_missed": "Nayi shape mein failure case gum ho gaya. Empty array aur 'unknown' do alag cheezein hain, aur consumer ko pata hona chahiye kaunsi milegi."
+          },
+          {
+            "id": "t4_scope_creep",
+            "check": "Does the submission rewrite unrelated parts of the prompt that the change did not require?",
+            "weight": 0.15,
+            "polarity": "negative",
+            "feedback_if_missed": ""
+          }
+        ],
+        "reference_answer": "Changed section:\n\n  \"teams\": a non-empty array of one or more of [\"billing\", \"tech\", \"sales\", \"account\", \"shipping\", \"unknown\"], lowercase, no duplicates.\n  If the ticket cannot be classified, return exactly [\"unknown\"] — never an empty array.\n\nWhy the old contract can't carry this: `team` was a scalar and the deployed consumer reads it as a string. Widening it in place is a breaking change, so this ships as a new key (`teams`) emitted alongside `team` (set to the highest-confidence single team) until the consumer migrates, then `team` is removed."
+      }
+    }
+  ]
+}

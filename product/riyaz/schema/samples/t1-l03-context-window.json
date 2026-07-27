@@ -1,0 +1,115 @@
+{
+  "id": "t1-l03-context-window",
+  "track": "foundations",
+  "skill_id": "skill.foundations.context_window",
+  "day_index": 3,
+  "title": "The window is a room, not a memory",
+  "brief": "The model does not remember your conversation. It re-reads it, every single time, and pays for it.",
+  "est_seconds": 480,
+  "status": "draft",
+  "prerequisites": ["skill.foundations.tokens"],
+  "exit_criterion": "The learner can predict which parts of a long conversation the model can and cannot use, and can explain why a chat 'forgot' something without appealing to memory.",
+
+  "_authoring_note": "ZERO-COST LESSON. Every exercise here is deterministic — no LLM call is made at any point. This is what the free tier is built from (see BLUEPRINT.md §15). Foundations is almost entirely lessons of this shape by design.",
+
+  "exercises": [
+    {
+      "id": "t1-l03-e1",
+      "ordinal": 1,
+      "slot": "warmup",
+      "type": "predict_the_output",
+      "xp_base": 5,
+      "payload": {
+        "kind": "choice",
+        "stem": "Aapne turn 1 pe apna naam bataya. Turn 40 pe model bhool gaya. Sabse likely wajah?",
+        "options": [
+          "The model's memory degrades over long conversations",
+          "Turn 1 fell outside the context window that was sent with turn 40",
+          "The model chose not to use that information",
+          "The API stopped sending older turns to save money"
+        ],
+        "correct_index": 1,
+        "explanation": "API stateless hai. Har request pe aap poori conversation dobara bhejte ho. Agar woh window mein fit nahi hui, ya aapke client ne purane turns trim kar diye, to model ne turn 1 dekha hi nahi. 'Bhoolna' yahan ek metaphor hai — actually woh text room mein tha hi nahi."
+      }
+    },
+    {
+      "id": "t1-l03-e2",
+      "ordinal": 2,
+      "slot": "warmup",
+      "type": "order_the_steps",
+      "xp_base": 5,
+      "payload": {
+        "kind": "order",
+        "stem": "Ek multi-turn chat request mein content kis order mein render hota hai?",
+        "items": [
+          "Tool definitions",
+          "System prompt",
+          "Conversation history (oldest first)",
+          "The current user message"
+        ],
+        "correct_order": [0, 1, 2, 3],
+        "partial_credit": true,
+        "explanation": "Order matter karta hai kyunki caching ek **prefix match** hai. Jo cheez sabse pehle render hoti hai, woh sabse stable honi chahiye. Agar aap system prompt mein aaj ka date daal doge, to uske baad ka sab kuch har request pe re-process hoga."
+      }
+    },
+    {
+      "id": "t1-l03-e3",
+      "ordinal": 3,
+      "slot": "warmup",
+      "type": "spot_the_flaw",
+      "xp_base": 5,
+      "payload": {
+        "kind": "choice",
+        "stem": "In chaar system prompts mein se kaunsa aapka prompt cache har request pe tod dega?",
+        "options": [
+          "\"You are a support assistant for Acme Corp. Follow the policy below. <5000 words of policy>\"",
+          "\"You are a support assistant for Acme Corp. Current time: 2026-07-27T14:32:09Z. Follow the policy below. <5000 words of policy>\"",
+          "\"You are a support assistant for Acme Corp. Follow the policy below. <5000 words of policy>\" — with the user's name placed in the latest user message instead",
+          "\"You are a support assistant for Acme Corp. Follow the policy below. <5000 words of policy>\" — with tools sorted alphabetically"
+        ],
+        "correct_index": 1,
+        "explanation": "Timestamp system prompt ke shuru mein baitha hai, aur har second badal raha hai. Prefix match ka matlab: ek byte badla, uske baad ka poora cache invalid. 5,000 words ki policy har request pe full price pe re-process hogi. Fix: dynamic cheezein hamesha *baad mein* — latest user message mein, ya (supported models pe) ek mid-conversation system message ke roop mein."
+      }
+    },
+    {
+      "id": "t1-l03-e4",
+      "ordinal": 4,
+      "slot": "rep",
+      "type": "budget_call",
+      "xp_base": 30,
+      "payload": {
+        "kind": "choice",
+        "stem": "Aap ek document Q&A feature bana rahe ho. Har user 40-page policy PDF (~30,000 tokens) upload karta hai aur usse 10-15 questions poochta hai. Aapko per-user cost kam karna hai. Kya karoge?",
+        "context_block": "Constraint: answers must stay grounded in the uploaded document.\nBudget: this feature must cost under $0.05 per user session.",
+        "options": [
+          "Send the full 30,000-token document with every question, uncached",
+          "Send the full document once with a cache breakpoint after it, then send only the question on each subsequent turn",
+          "Summarise the document to 2,000 tokens once, then answer all questions from the summary",
+          "Split the document into 15 chunks and send a different chunk with each question"
+        ],
+        "correct_index": 1,
+        "explanation": "Option B: document ek baar cache write (1.25×), phir har question pe cache read (~0.1×). 15 questions pe yeh option A se roughly 8× sasta hai aur grounding poori tarah intact rehti hai.\n\nA sahi answers deta hai par 15× full-price input pe — budget se bahar.\nC sasta hai par grounding tod deta hai: summary mein woh ek clause hi nahi hoga jiske baare mein user poochega. Yeh ek *correctness* bug hai, cost optimisation nahi.\nD deterministic tarike se galat answers dega, kyunki aapko pehle se pata nahi ki kaunsa question kaunse chunk se relate karta hai — aur agar aapko pata hota, to aapko retrieval chahiye tha, round-robin nahi."
+      }
+    },
+    {
+      "id": "t1-l03-e5",
+      "ordinal": 5,
+      "slot": "twist",
+      "type": "predict_the_output",
+      "xp_base": 20,
+      "payload": {
+        "kind": "choice",
+        "stem": "Aapne option B implement kar diya. Par production mein cache hit rate 0% aa raha hai — har request full price pe. Document bhi bilkul same hai. Sabse likely wajah?",
+        "context_block": "Your request builder:\n\n  system = [\n    { \"type\": \"text\", \"text\": f\"Session {uuid4()}. Answer only from the document.\" },\n    { \"type\": \"text\", \"text\": document, \"cache_control\": {\"type\": \"ephemeral\"} }\n  ]",
+        "options": [
+          "The cache breakpoint is on the wrong block",
+          "A fresh UUID is rendered before the document, so the prefix differs on every request",
+          "The document is too large to cache",
+          "Caching does not apply to system prompts"
+        ],
+        "correct_index": 1,
+        "explanation": "Breakpoint bilkul sahi jagah hai. Problem yeh hai ki uske *pehle* jo block hai woh har request pe naya hai. Prefix match hai — jo bhi breakpoint se pehle aata hai, use byte-for-byte identical hona chahiye.\n\nFix: session ID ko user message mein daalo, ya nikaal do (aap use waise bhi log mein rakh sakte ho). Yeh is poore lesson ka closing point hai: **stable pehle, volatile baad mein.** Yeh ek line aapko production mein hazaaron dollars bacha sakti hai — aur yeh galti itni chupi hui hoti hai ki koi error nahi aata, sirf bill aata hai."
+      }
+    }
+  ]
+}
