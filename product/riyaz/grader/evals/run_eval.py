@@ -29,6 +29,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+# pylint: disable=wrong-import-position  # the path shim above must run first
 from grader import for_tier, judge, load_rubrics, score_grade  # noqa: E402
 from grader.judge import constitution  # noqa: E402
 from grader.rubric import Rubric  # noqa: E402
@@ -229,7 +230,10 @@ def report(rubric: Rubric, items: list[dict], results: dict, runs: int) -> dict:
 
     print(f"\n  agreement (criterion-level)  {agreement:>7.1%}   target >= {AGREEMENT_TARGET:.0%}")
     if runs > 1:
-        print(f"  self-consistency             {consistency:>7.1%}   target >= {CONSISTENCY_TARGET:.0%}")
+        print(
+            f"  self-consistency             {consistency:>7.1%}"
+            f"   target >= {CONSISTENCY_TARGET:.0%}"
+        )
     print(f"  pass/fail agreement          {pass_agree / len(items):>7.1%}")
     print(f"  mean score error             {statistics.mean(score_errors):>7.3f}")
     print(f"  evidence flips (unquotable)  {flips:>7}")
@@ -259,7 +263,9 @@ def report(rubric: Rubric, items: list[dict], results: dict, runs: int) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--offline", action="store_true", help="no API calls; validate sets only")
-    ap.add_argument("--runs", type=int, default=2, help="passes per submission (>=2 for consistency)")
+    ap.add_argument(
+        "--runs", type=int, default=2, help="passes per submission (>=2 for consistency)"
+    )
     ap.add_argument("--rubric", help="run a single rubric by id")
     ap.add_argument("--workers", type=int, default=4)
     args = ap.parse_args()

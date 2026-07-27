@@ -9,6 +9,7 @@ the constitution for every request that follows it.
 from __future__ import annotations
 
 import json
+import time
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
@@ -49,10 +50,11 @@ class JudgeVerdict:
 
 def build_user_turn(rubric: Rubric, submission: str) -> str:
     """The volatile half of the prompt. Never put anything from here in the system prompt."""
-    criteria_lines = []
-    for c in rubric.criteria:
-        polarity = " [NEGATIVE — met:true means the undesirable thing is PRESENT]" if c.is_negative else ""
-        criteria_lines.append(f"- id: {c.id}{polarity}\n  check: {c.check}")
+    negative_note = " [NEGATIVE — met:true means the undesirable thing is PRESENT]"
+    criteria_lines = [
+        f"- id: {c.id}{negative_note if c.is_negative else ''}\n  check: {c.check}"
+        for c in rubric.criteria
+    ]
 
     constraints = (
         "\n".join(f"- {c}" for c in rubric.constraints)
@@ -97,8 +99,6 @@ def judge(
     client: anthropic.Anthropic | None = None,
     model: GraderModel | None = None,
 ) -> JudgeVerdict:
-    import time
-
     client = client or anthropic.Anthropic()
     model = model or for_tier(rubric.grader_tier)
 
