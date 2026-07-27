@@ -1,0 +1,203 @@
+{
+  "id": "t3-l04-premature-stop",
+  "track": "agents",
+  "skill_id": "skill.agents.failure_taxonomy",
+  "day_index": 44,
+  "title": "The agent that said it was done",
+  "brief": "The most expensive agent failure is not a crash. It is a confident 'task complete' on work that never happened.",
+  "est_seconds": 660,
+  "status": "draft",
+  "prerequisites": ["skill.agents.loop_anatomy", "skill.agents.reading_traces"],
+  "exit_criterion": "Given a 20+ step agent trace containing a premature stop, the learner locates the terminating step, distinguishes it from a silent no-op, and proposes a fix that changes the agent's stopping condition rather than its prompt tone.",
+
+  "exercises": [
+    {
+      "id": "t3-l04-e1",
+      "ordinal": 1,
+      "slot": "warmup",
+      "type": "order_the_steps",
+      "xp_base": 5,
+      "payload": {
+        "kind": "order",
+        "stem": "Ek healthy agent loop ka ek iteration order mein lagao.",
+        "items": [
+          "Model emits a tool_use block",
+          "Harness validates the tool arguments",
+          "Tool executes and returns a result",
+          "Result is appended to the conversation as a tool_result",
+          "Model reads the result and decides the next action",
+          "Harness checks the stopping condition"
+        ],
+        "correct_order": [0, 1, 2, 3, 4, 5],
+        "partial_credit": true,
+        "explanation": "Note ki stopping condition **harness** check karta hai, model nahi. Yeh is poore lesson ka core hai: agar aap model ke 'I'm done' kehne pe bharosa karke loop todte ho, aapne apna termination logic ek text generator ko outsource kar diya."
+      }
+    },
+    {
+      "id": "t3-l04-e2",
+      "ordinal": 2,
+      "slot": "warmup",
+      "type": "spot_the_flaw",
+      "xp_base": 5,
+      "payload": {
+        "kind": "choice",
+        "stem": "Kaunsa stopping condition premature stop ko invite karta hai?",
+        "options": [
+          "Loop until `stop_reason != \"tool_use\"` AND all acceptance checks pass",
+          "Loop until the model's text output contains 'task complete'",
+          "Loop until `stop_reason != \"tool_use\"` OR iteration count hits 25",
+          "Loop until every item in the task checklist has a recorded tool result"
+        ],
+        "correct_index": 1,
+        "explanation": "Model ka text ek assertion hai, evidence nahi. Woh 'task complete' tab bhi likh dega jab usne ek bhi tool call na kiya ho. Option C safe hai (structural signal + hard cap), D sabse strong hai (evidence-based). A theek hai. B aapka termination decision hallucination-able bana deta hai."
+      }
+    },
+    {
+      "id": "t3-l04-e3",
+      "ordinal": 3,
+      "slot": "warmup",
+      "type": "budget_call",
+      "xp_base": 5,
+      "payload": {
+        "kind": "choice",
+        "stem": "Aapka agent average 18 steps leta hai, p95 pe 34. Aapko ek hard iteration cap chahiye. Kya set karoge?",
+        "options": [
+          "18 — the average, to control cost",
+          "20 — a little above average",
+          "40 — comfortably above p95",
+          "No cap; rely on the model to stop"
+        ],
+        "correct_index": 2,
+        "explanation": "Cap ka kaam runaway loops rokna hai, normal work ko kaatna nahi. Agar cap p95 ke neeche hai to aap har 20 mein se ek legitimate task ko premature-stop kar rahe ho — aur woh exactly wahi bug hai jo aaj debug karne wale ho."
+      }
+    },
+
+    {
+      "id": "t3-l04-e4",
+      "ordinal": 4,
+      "slot": "rep",
+      "type": "debug_the_agent",
+      "xp_base": 30,
+      "payload": {
+        "kind": "trace",
+        "scenario": "Ek invoice-reconciliation agent ko 12 vendor invoices ko ledger ke against match karna tha aur mismatches ka report banana tha. Usne 23 steps mein 'Reconciliation complete. All invoices processed.' return kiya. Finance team ne report bheji client ko. Do din baad pata chala ki 12 mein se sirf 4 invoices actually check hui thi.",
+        "fixture_id": "trace.premature_stop.batch_processing.v2",
+        "fixture_params": {
+          "domain": "invoice_reconciliation",
+          "tool_names": ["list_invoices", "fetch_ledger_entry", "compare_amounts", "write_report"],
+          "item_count": 12,
+          "items_actually_processed": 4
+        },
+        "diagnosis": {
+          "failure_step": 19,
+          "failure_class": "premature_stop",
+          "options": [
+            "Step 19 — premature stop: the agent summarised before finishing the batch",
+            "Step 19 — silent no-op: `write_report` returned success but wrote nothing",
+            "Step 11 — context poisoning: an early tool error convinced the agent the remaining invoices were invalid",
+            "Step 23 — tool arg hallucination: `write_report` was called with a fabricated invoice count"
+          ]
+        },
+        "task": "Aapne failure identify kar liya. Ab fix propose karo. Batao ki aap harness mein kya badloge (prompt mein nahi) taaki yeh class of failure structurally impossible ho jaye — aur batao ki aapka fix us case mein kya karega jahan ek invoice genuinely fetch nahi ho paa rahi."
+      },
+      "rubric": {
+        "id": "rubric.t3-l04.premature-stop-fix",
+        "version": 2,
+        "grader_tier": "hard",
+        "pass_threshold": 0.6,
+        "golden_set_id": "golden/t3-l04-premature-stop.jsonl",
+        "criteria": [
+          {
+            "id": "a1_structural_not_prompt",
+            "check": "Does the proposed fix change the harness (stopping condition, checklist, validation) rather than only rewording the system prompt?",
+            "weight": 0.25,
+            "polarity": "positive",
+            "feedback_if_missed": "Aapka fix prompt-level hai. 'Make sure you process ALL invoices' ek request hai, guarantee nahi — aur exactly yahi 23 steps pehle bhi likha hua tha. Structural fix ka matlab hai loop tab tak na ruke jab tak evidence na mile."
+          },
+          {
+            "id": "a2_evidence_based_completion",
+            "check": "Does the fix tie completion to per-item evidence (a recorded tool result per invoice) rather than to the model's own claim of being done?",
+            "weight": 0.25,
+            "polarity": "positive",
+            "feedback_if_missed": "Completion abhi bhi model ke assertion pe depend kar raha hai. Har item ke liye ek recorded tool result chahiye — checklist harness ke paas rehni chahiye, model ke head mein nahi."
+          },
+          {
+            "id": "a3_partial_failure_path",
+            "check": "Does the submission define what happens when one item genuinely cannot be processed — i.e. does it avoid creating an infinite loop while also avoiding a false 'complete'?",
+            "weight": 0.25,
+            "polarity": "positive",
+            "feedback_if_missed": "Yeh sabse important hissa hai aur aapne skip kar diya. Agar ek invoice fetch nahi ho rahi, aapka naya condition kabhi satisfy nahi hoga — aap premature stop ko infinite loop se replace kar doge. Answer: per-item terminal states (done | failed | skipped) + report unko explicitly."
+          },
+          {
+            "id": "a4_report_reflects_reality",
+            "check": "Does the fix ensure the final report distinguishes processed items from unprocessed ones, rather than only preventing the early stop?",
+            "weight": 0.15,
+            "polarity": "positive",
+            "feedback_if_missed": "Loop toh theek kar diya, par report abhi bhi 'complete' keh sakti hai. Yahan asli nuksaan report ne kiya tha, loop ne nahi — output ko coverage reflect karna chahiye."
+          },
+          {
+            "id": "a5_blames_the_model",
+            "check": "Does the submission attribute the failure primarily to the model being 'lazy' or 'unreliable' without identifying the missing harness invariant?",
+            "weight": 0.1,
+            "polarity": "negative",
+            "feedback_if_missed": ""
+          }
+        ],
+        "reference_answer": "Harness change: build the work-list up front from `list_invoices` and hold it in the harness, not in the conversation. Each invoice gets an explicit terminal state — `done`, `failed`, or `skipped(reason)` — and a state is only writable by the harness when it observes the corresponding `compare_amounts` tool result for that invoice ID. The loop's stopping condition becomes: every item has a terminal state, OR the iteration cap is hit. The model's text is never consulted for termination.\n\nGenuine failure case: an invoice that cannot be fetched is marked `failed` after N retries and the loop continues — this is why the terminal-state set includes failure, otherwise the new condition just converts a premature stop into an infinite loop.\n\nReport change: `write_report` is called by the harness with the state table, not composed freely by the model. Its header reads '8 of 12 reconciled, 4 failed (see below)'. A report that cannot claim more coverage than the state table records is the actual fix — the early stop was the bug, but the confident report was the damage."
+      }
+    },
+
+    {
+      "id": "t3-l04-e5",
+      "ordinal": 5,
+      "slot": "twist",
+      "type": "twist",
+      "xp_base": 20,
+      "payload": {
+        "kind": "freeform",
+        "scenario": "Aapka fix ship ho gaya. Ab ek naya trace aaya hai: har invoice ka terminal state set hai, loop poora chala, report 12 of 12 dikha rahi hai — par finance team keh rahi hai ki 3 mismatches miss ho gaye. `compare_amounts` har baar `{\"status\": \"ok\"}` return kar raha tha.",
+        "task": "Ab yeh kaunsa failure class hai, aur aapka pichla fix isse kyun nahi pakad paaya?",
+        "constraints": [
+          "The learner must correctly reclassify the failure (it is no longer premature_stop)",
+          "The learner must explain the limitation of evidence-based completion, not just name the new bug",
+          "The proposed next step must validate tool output semantics, not just tool invocation"
+        ],
+        "min_chars": 100,
+        "max_chars": 1000,
+        "twist_of": "t3-l04-e4",
+        "twist_change": "the loop now completes correctly but the tool itself lies"
+      },
+      "rubric": {
+        "id": "rubric.t3-l04.silent-no-op-twist",
+        "version": 1,
+        "grader_tier": "hard",
+        "pass_threshold": 0.6,
+        "golden_set_id": "golden/t3-l04-twist.jsonl",
+        "criteria": [
+          {
+            "id": "w1_reclassify",
+            "check": "Does the submission identify this as a silent no-op (the tool reports success without doing the work) rather than repeating 'premature stop'?",
+            "weight": 0.35,
+            "polarity": "positive",
+            "feedback_if_missed": "Yeh premature stop nahi hai — loop poora chala. Yeh silent no-op hai: tool ne success return kiya par kaam nahi hua. Alag failure, alag fix."
+          },
+          {
+            "id": "w2_limitation_named",
+            "check": "Does the submission articulate that evidence-based completion only proves the tool was CALLED, not that it did anything meaningful?",
+            "weight": 0.35,
+            "polarity": "positive",
+            "feedback_if_missed": "Yahi is twist ka pura point hai: 'har item ka tool result hai' sirf yeh prove karta hai ki tool call hua. Tool ne kaam kiya ya nahi — woh alag question hai, aur usko alag check chahiye."
+          },
+          {
+            "id": "w3_semantic_check",
+            "check": "Does the proposed next step validate the *content* of the tool result (e.g. the tool must return the two amounts it compared) rather than only its status field?",
+            "weight": 0.3,
+            "polarity": "positive",
+            "feedback_if_missed": "Fix abhi bhi status field pe bharosa kar raha hai. Tool ko apna kaam prove karna chahiye — dono compared amounts return kare, aur harness khud diff verify kare."
+          }
+        ],
+        "reference_answer": "This is a silent no-op, not a premature stop. The loop terminated correctly; the tool lied.\n\nWhy the previous fix missed it: evidence-based completion proved each invoice was *visited* — a `compare_amounts` result existed for every ID. It proved nothing about whether the comparison happened. `{\"status\": \"ok\"}` is an assertion by the tool, structurally identical to 'task complete' being an assertion by the model. I moved the trust boundary one layer down instead of removing it.\n\nNext step: `compare_amounts` must return the two values it compared and the computed delta, and the harness recomputes the delta itself from the returned values. A result that carries no amounts is treated as `failed`, not `ok`. The general rule: a tool result is evidence only to the extent that it contains something the harness can independently check."
+      }
+    }
+  ]
+}
