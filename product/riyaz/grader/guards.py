@@ -32,6 +32,8 @@ _INJECTION_RE = re.compile("|".join(_INJECTION_PATTERNS), re.IGNORECASE)
 
 @dataclass
 class GuardResult:
+    """Outcome of a pre-LLM stage: whether to proceed, and why not if not."""
+
     ok: bool
     reason: str = ""
     feedback: str = ""

@@ -1,0 +1,42 @@
+# Pylint configuration for the Riyaz product code.
+#
+# Scoped to product/riyaz/ — the course material in the rest of this repo predates
+# this config and is not linted (see .github/workflows/pylint.yml).
+#
+# The disabled checks below are all pylint defaults that measure *shape* rather than
+# correctness. Each one is off for a stated reason, not to make the number go up.
+
+[MAIN]
+py-version = 3.11
+
+[FORMAT]
+max-line-length = 100
+
+[MESSAGES CONTROL]
+disable =
+    # --- Design checks: arbitrary count thresholds ---------------------------
+    # These fire on counts (7 attributes, 15 locals, 5 arguments) that have no
+    # bearing on whether the code is correct. A Grade carries 11 fields because a
+    # grade has 11 things worth recording; splitting it to satisfy a linter would
+    # make the code worse.
+    too-many-instance-attributes,
+    too-many-locals,
+    too-many-arguments,
+    too-many-branches,
+    too-many-statements,
+    too-few-public-methods,
+
+    # --- Docstrings ----------------------------------------------------------
+    # Module and class docstrings stay required (see enable below). Per-function
+    # docstrings are off: this codebase has 43 functions whose names already say
+    # what they do (`test_empty_submission_rejected_before_any_llm_call`), and a
+    # docstring restating the name is noise that makes the real ones harder to see.
+    missing-function-docstring,
+
+    # --- Script path shims ---------------------------------------------------
+    # run_eval.py and the test module insert the package root on sys.path before
+    # importing from it. The imports genuinely cannot come first.
+    wrong-import-position,
+
+[REPORTS]
+score = yes

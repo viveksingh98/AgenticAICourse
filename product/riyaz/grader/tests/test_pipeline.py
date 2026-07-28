@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "evals"))
 from grader import load_rubric, load_rubrics, run_guards, run_hard_checks  # noqa: E402
 from grader.rubric import Criterion, Rubric  # noqa: E402
 from grader.score import score_grade, verify_evidence  # noqa: E402
+from run_eval import human_score, load_golden  # noqa: E402
 
 RUBRIC = Rubric(
     id="test.rubric",
@@ -93,7 +94,7 @@ def test_injection_attempts_are_flagged_not_rejected(text):
 
 
 def test_clean_submission_carries_no_flags():
-    assert run_guards(SUBMISSION, min_chars=20).flags == ()
+    assert not run_guards(SUBMISSION, min_chars=20).flags
 
 
 # ---------------------------------------------------------------------- hard checks
@@ -236,15 +237,11 @@ def test_positive_weights_sum_to_one():
 
 
 def _golden_items(rubric):
-    from run_eval import load_golden
-
     return load_golden(rubric)
 
 
 def test_golden_sets_span_the_full_score_range():
     """A golden set of near-misses teaches the harness nothing about the extremes."""
-    from run_eval import human_score
-
     for rubric in load_rubrics().values():
         items = _golden_items(rubric)
         if not items:
@@ -260,8 +257,6 @@ def test_eval_scoring_matches_production_scoring():
     Two independent scoring implementations is exactly how a green eval starts
     certifying a grader that scores differently in production.
     """
-    from run_eval import human_score
-
     for rubric in load_rubrics().values():
         for item in _golden_items(rubric) or []:
             submission = item["submission"]

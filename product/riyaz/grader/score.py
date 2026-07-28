@@ -16,6 +16,8 @@ from .rubric import Criterion, Rubric
 
 @dataclass
 class CriterionResult:
+    """One criterion after evidence verification, including whether we overrode it."""
+
     id: str
     met: bool
     evidence: str
@@ -29,6 +31,8 @@ class CriterionResult:
 
 @dataclass
 class Grade:
+    """A scored submission: the number, the per-criterion trace, and the feedback."""
+
     rubric_id: str
     rubric_version: int
     score: float
@@ -124,7 +128,7 @@ def score_grade(
     total = rubric.positive_weight or 1.0
     score = max(0.0, min(1.0, (earned - penalty) / total))
 
-    weakest_id = _pick_weakest(rubric, results, judge_output.get("weakest", ""))
+    weakest_id = _pick_weakest(results, judge_output.get("weakest", ""))
     feedback = _feedback_for(by_id, weakest_id, results)
 
     return Grade(
@@ -142,7 +146,7 @@ def score_grade(
     )
 
 
-def _pick_weakest(rubric: Rubric, results: list[CriterionResult], judge_choice: str) -> str:
+def _pick_weakest(results: list[CriterionResult], judge_choice: str) -> str:
     """Trust the judge's pick only if it is actually a problem; otherwise take the
     heaviest unmet positive criterion."""
     by_id = {r.id: r for r in results}

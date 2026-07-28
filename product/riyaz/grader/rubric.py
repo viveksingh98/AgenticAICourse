@@ -11,6 +11,8 @@ LESSON_DIR = Path(__file__).resolve().parent.parent / "schema" / "samples"
 
 @dataclass(frozen=True)
 class Criterion:
+    """One binary check the judge answers, with its weight and its miss feedback."""
+
     id: str
     check: str
     weight: float
@@ -24,6 +26,8 @@ class Criterion:
 
 @dataclass(frozen=True)
 class Rubric:
+    """A versioned set of criteria plus the exercise context the judge needs."""
+
     id: str
     version: int
     grader_tier: str

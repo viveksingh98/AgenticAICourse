@@ -34,6 +34,8 @@ def constitution() -> str:
 
 @dataclass
 class JudgeVerdict:
+    """The judge's raw output plus everything we need to cost and debug the call."""
+
     raw: dict
     cost_usd: float
     cache_read_tokens: int
