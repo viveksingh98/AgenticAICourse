@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% block title %}{{ lesson.title }} — Riyaz{% endblock %}
+{% block body %}
+  <header class="ex-head">
+    <span class="eyebrow">{{ lesson.title }}</span>
+    <span class="progress">{{ position }}/{{ total }}</span>
+  </header>
+  <div class="bar"><i style="width: {{ (position / total * 100) | round }}%"></i></div>
+
+  <p class="slot slot-{{ exercise.slot }}">
+    {{ {'warmup': 'Warm-up', 'rep': 'Aaj ka rep', 'twist': 'Twist'}[exercise.slot] }}
+  </p>
+
+  <div id="question">
+    {% if exercise.kind == 'choice' %}
+      <h2>{{ payload.stem }}</h2>
+      {% if payload.context_block %}<pre class="context">{{ payload.context_block }}</pre>{% endif %}
+      <div class="options">
+        {% for opt in payload.options %}
+          <button class="option" data-index="{{ loop.index0 }}">{{ opt }}</button>
+        {% endfor %}
+      </div>
+
+    {% elif exercise.kind == 'order' %}
+      <h2>{{ payload.stem }}</h2>
+      <ol class="sortable" id="sortable">
+        {% for item in payload['items'] %}
+          <li draggable="true" data-index="{{ loop.index0 }}">
+            <span class="grip">⋮⋮</span>{{ item }}
+            <span class="nudge"><button data-dir="-1">↑</button><button data-dir="1">↓</button></span>
+          </li>
+        {% endfor %}
+      </ol>
+      <button class="primary" id="submit-order">Submit</button>
+
+    {% elif exercise.kind == 'contract' %}
+      <h2>{{ payload.stem }}</h2>
+      <textarea id="contract" rows="14" spellcheck="false">{{ payload.starter }}</textarea>
+      <button class="primary" id="submit-contract">Submit</button>
+
+    {% else %}
+      {# freeform: the rep and the twist #}
+      {% if exercise.slot == 'twist' and payload.twist_change %}
+        <p class="twist-change">Badla kya: <b>{{ payload.twist_change }}</b></p>
+      {% endif %}
+      <h2>{{ payload.task }}</h2>
+      <p class="scenario">{{ payload.scenario }}</p>
+      {% if payload.constraints %}
+        <ul class="constraints">
+          {% for c in payload.constraints %}<li>{{ c }}</li>{% endfor %}
+        </ul>
+      {% endif %}
+      {% if prior_submission %}
+        <details class="reference">
+          <summary>Aapka pichla jawab</summary>
+          <pre>{{ prior_submission }}</pre>
+        </details>
+      {% endif %}
+      <textarea id="freeform" rows="12"
+                placeholder="Yahan likho…"
+                data-min="{{ payload.min_chars or 80 }}">{{ payload.starter_text or '' }}</textarea>
+      <p class="counter"><span id="count">0</span> / {{ payload.min_chars or 80 }} characters minimum</p>
+      <button class="primary" id="submit-freeform">Submit</button>
+    {% endif %}
+  </div>
+
+  <div id="pending" class="pending" hidden>
+    <div class="dots"><i></i><i></i><i></i></div>
+    <p>Aapka jawab rubric ke against check ho raha hai…</p>
+  </div>
+  <div id="result"></div>
+
+<script>
+const URL_ = "/session/{{ session_id }}/exercise/{{ exercise.ordinal }}";
+const question = document.getElementById("question");
+const pending  = document.getElementById("pending");
+const result   = document.getElementById("result");
+
+async function submit(payload, slow) {
+  question.hidden = true;
+  // A designed pending state, never an unexplained blank screen (spec N2).
+  if (slow) pending.hidden = false;
+  const res = await fetch(URL_, {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({submission: payload}),
+  });
+  pending.hidden = true;
+  result.innerHTML = await res.text();
+  result.scrollIntoView({behavior: "smooth", block: "start"});
+}
+
+document.querySelectorAll(".option").forEach(b =>
+  b.addEventListener("click", () => submit(Number(b.dataset.index), false)));
+
+const sortable = document.getElementById("sortable");
+if (sortable) {
+  sortable.addEventListener("click", e => {
+    const btn = e.target.closest(".nudge button");
+    if (!btn) return;
+    const li = btn.closest("li");
+    const dir = Number(btn.dataset.dir);
+    const sibling = dir < 0 ? li.previousElementSibling : li.nextElementSibling;
+    if (sibling) dir < 0 ? sortable.insertBefore(li, sibling) : sortable.insertBefore(sibling, li);
+  });
+  document.getElementById("submit-order").addEventListener("click", () =>
+    submit([...sortable.children].map(li => Number(li.dataset.index)), false));
+}
+
+const contract = document.getElementById("contract");
+if (contract) document.getElementById("submit-contract")
+  .addEventListener("click", () => submit(contract.value, false));
+
+const freeform = document.getElementById("freeform");
+if (freeform) {
+  const count = document.getElementById("count");
+  const btn = document.getElementById("submit-freeform");
+  const min = Number(freeform.dataset.min);
+  const sync = () => {
+    count.textContent = freeform.value.trim().length;
+    btn.disabled = freeform.value.trim().length < min;
+  };
+  freeform.addEventListener("input", sync);
+  sync();
+  btn.addEventListener("click", () => submit(freeform.value, true));
+}
+</script>
+{% endblock %}

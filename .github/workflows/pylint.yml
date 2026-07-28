@@ -3,21 +3,65 @@ name: Pylint
 on: [push]
 
 jobs:
-  build:
+  check:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.8", "3.9", "3.10"]
     steps:
     - uses: actions/checkout@v4
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v3
+
+    # Single version, deliberately. This runner provisions 3.11 and nothing else we
+    # have tried: 3.8 (EOL, removed from the image) and 3.12 both fail setup-python in
+    # ~2 seconds, before any step runs. A lint job gains very little from a version
+    # matrix anyway, and a matrix entry that cannot be provisioned is a permanent red X.
+    - uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.11"
+
+    # pylint resolves imports, so the project's own dependencies must be installed or
+    # every `import anthropic` / `import pytest` is reported as E0401 (import-error).
+    # Installing only pylint is what made the first attempt at this workflow fail.
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint
-    - name: Analysing the code with pylint
+        pip install pylint -r product/riyaz/grader/requirements.txt \
+                          -r product/riyaz/app/requirements.txt
+
+    # Scoped to product/riyaz/ rather than the whole repo. The course material under
+    # 1_foundations/, 2_openai/, 3_crew/ etc. is teaching code contributed by many
+    # people and rates 0.00/10 under pylint's default profile; linting it would mean a
+    # permanently red gate, which teaches everyone to ignore the red X. Linting only the
+    # new product code keeps the gate meaningful without a 1,300-file cleanup.
+    - name: Lint product code
+      run: pylint --rcfile=product/riyaz/.pylintrc $(git ls-files 'product/riyaz/**/*.py')
+
+    # Everything below is offline — no API key. The grading pipeline's stages 1, 2 and 4
+    # are pure functions; only the judge call needs credentials, and it is not exercised.
+    - name: Tests
+      run: python -m pytest product/riyaz/grader/tests/ product/riyaz/app/tests/ -q
+
+    - name: Validate lesson content against the schema
       run: |
-        pylint $(git ls-files '*.py')
+        python - <<'EOF'
+        import glob
+        import json
+        import sys
+
+        from jsonschema import Draft202012Validator
+
+        with open("product/riyaz/schema/lesson.schema.json", encoding="utf-8") as handle:
+            schema = json.load(handle)
+        Draft202012Validator.check_schema(schema)
+        validator = Draft202012Validator(schema)
+
+        failed = False
+        for path in sorted(glob.glob("product/riyaz/schema/samples/*.json")):
+            with open(path, encoding="utf-8") as handle:
+                errors = list(validator.iter_errors(json.load(handle)))
+            print("VALID  " if not errors else "INVALID", path)
+            for error in errors:
+                failed = True
+                print("   ", list(error.path), "->", error.message[:200])
+        sys.exit(1 if failed else 0)
+        EOF
+
+    - name: Rubric and golden-set checks
+      run: python product/riyaz/grader/evals/run_eval.py --offline

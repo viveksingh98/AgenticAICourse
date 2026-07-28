@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block body %}
+  <header class="open-head">
+    <div class="flame" title="{{ streak }} din">🔥 <span>{{ streak }}</span></div>
+    <div class="xp">{{ total_xp }} XP</div>
+  </header>
+
+  {% if all_done %}
+    <h1>Aaj ke liye bas.</h1>
+    <p class="brief">Saare {{ total_lessons }} lessons complete. Naya content aane par yahin milega.</p>
+  {% else %}
+    <p class="eyebrow">{{ lesson.track }} · din {{ lesson.day_index }} · ~{{ (lesson.est_seconds / 60) | round | int }} min</p>
+    <h1>{{ lesson.title }}</h1>
+    <p class="brief">{{ lesson.brief }}</p>
+    <form method="post" action="/session/start">
+      <button class="primary" type="submit">Aaj ka riyaz shuru karo</button>
+    </form>
+    <p class="muted">{{ completed_count }}/{{ total_lessons }} lessons ho chuke</p>
+  {% endif %}
+{% endblock %}
