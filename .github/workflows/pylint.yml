@@ -22,7 +22,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pylint -r product/riyaz/grader/requirements.txt
+        pip install pylint -r product/riyaz/grader/requirements.txt \
+                          -r product/riyaz/app/requirements.txt
 
     # Scoped to product/riyaz/ rather than the whole repo. The course material under
     # 1_foundations/, 2_openai/, 3_crew/ etc. is teaching code contributed by many
@@ -35,7 +36,7 @@ jobs:
     # Everything below is offline — no API key. The grading pipeline's stages 1, 2 and 4
     # are pure functions; only the judge call needs credentials, and it is not exercised.
     - name: Tests
-      run: python -m pytest product/riyaz/grader/tests/ -q
+      run: python -m pytest product/riyaz/grader/tests/ product/riyaz/app/tests/ -q
 
     - name: Validate lesson content against the schema
       run: |

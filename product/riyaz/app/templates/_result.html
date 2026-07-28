@@ -1,0 +1,36 @@
+<div class="result {{ 'pass' if result.passed else ('warn' if result.status == 'grading_unavailable' else 'fail') }}">
+  {% if result.status == 'graded' %}
+    <p class="verdict">{{ '%.0f'|format(result.score * 100) }}%{% if xp %} · +{{ xp }} XP{% endif %}</p>
+  {% elif result.status == 'grading_unavailable' %}
+    <p class="verdict">Save ho gaya{% if xp %} · +{{ xp }} XP{% endif %}</p>
+  {% else %}
+    <p class="verdict">Abhi nahi</p>
+  {% endif %}
+
+  <p class="feedback">{{ result.feedback }}</p>
+
+  {% if result.criteria %}
+    <ul class="criteria">
+      {% for c in result.criteria %}
+        <li class="{{ 'met' if (c.met and not c.negative) or (not c.met and c.negative) else 'unmet' }}">
+          <span class="mark">{{ '✓' if (c.met and not c.negative) or (not c.met and c.negative) else '✗' }}</span>
+          <span>{{ c.check }}</span>
+          {% if not c.met and not c.negative and c.feedback %}
+            <p class="crit-feedback">{{ c.feedback }}</p>
+          {% endif %}
+        </li>
+      {% endfor %}
+    </ul>
+  {% endif %}
+
+  {% if result.explanation %}<p class="explanation">{{ result.explanation }}</p>{% endif %}
+
+  {% if result.reference_answer %}
+    <details class="reference">
+      <summary>Ek strong jawab</summary>
+      <pre>{{ result.reference_answer }}</pre>
+    </details>
+  {% endif %}
+
+  <a class="primary" href="{{ next_url }}">{{ next_label }}</a>
+</div>

@@ -34,9 +34,11 @@ disable =
     missing-function-docstring,
 
     # --- Script path shims ---------------------------------------------------
-    # run_eval.py and the test module insert the package root on sys.path before
-    # importing from it. The imports genuinely cannot come first.
+    # run_eval.py, grading.py and the test modules insert the package root on sys.path
+    # before importing from it. The imports genuinely cannot come first, and pylint then
+    # also misreads the resulting order as third-party-after-local.
     wrong-import-position,
+    wrong-import-order,
 
 [REPORTS]
 score = yes

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block body %}
+  <p class="eyebrow">Session complete</p>
+  <h1>{{ win_count }}/{{ attempt_count }} sahi</h1>
+  <p class="brief">
+    {% if win_count %}Aaj aapne {{ win_count }} cheezein sahi kiin.{% else %}Aaj mushkil tha — par aap baithe aur poora kiya. Wahi aadat banti hai.{% endif %}
+  </p>
+
+  <div class="tally">
+    <div><span class="big">+{{ session_xp }}</span><small>XP is session</small></div>
+    <div><span class="big">🔥 {{ streak }}</span><small>{{ 'streak badha' if advanced else 'streak' }}</small></div>
+    <div><span class="big">{{ total_xp }}</span><small>total XP</small></div>
+  </div>
+
+  <ul class="ledger">
+    {% for e in entries %}<li><span>{{ e['note'] or e['source_type'] }}</span><b>+{{ e['amount'] }}</b></li>{% endfor %}
+  </ul>
+
+  {% if tomorrow %}
+    <p class="muted">Kal: <b>{{ tomorrow.title }}</b></p>
+  {% else %}
+    <p class="muted">Saare lessons complete.</p>
+  {% endif %}
+  <a class="primary" href="/">Ghar wapas</a>
+{% endblock %}
